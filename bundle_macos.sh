@@ -3,8 +3,8 @@
 # Modified lightly from
 # https://github.com/RustAudio/vst-rs/blob/master/osx_vst_bundler.sh
 
-SYNTH_NAME=ampli-Fe
-BUILD_OUTPUT=target/release/libampli_fe.dylib
+SYNTH_NAME=machineElf
+BUILD_OUTPUT=target/release/libmachine_elf.dylib
 
 # Make the bundle folder
 mkdir -p "$SYNTH_NAME.vst/Contents/MacOS"

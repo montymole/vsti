@@ -66,86 +66,114 @@ impl PluginParameters for PluginState {
     }
 
     fn get_parameter_label(&self, index: i32) -> String {
-        match index {
-            PULSE_WIDTH => if self.state_record.lock().unwrap()[index as usize] < 0.5 {
-                "-".to_string()
-            } else {
-                "+".to_string()
-            }
+        match index as usize {
+            PULSE_WIDTH_MOD_FREQ | PHASE_SHIFT_MOD_FREQ | PITCH_MOD_FREQ | FILTER_CUTOFF =>
+                "Hz".to_string(),
 
-            ENV_ATTACK => "s".to_string(),
-            ENV_DECAY => "s".to_string(),
-            ENV_SUSTAIN_LEVEL => "%".to_string(),
-            ENV_RELEASE => "s".to_string(),
+            AMP_SUSTAIN_LEVEL | FILTER_SUSTAIN_LEVEL | FILTER_DRIVE => "%".to_string(),
 
-            FILTER_CUTOFF => "Hz".to_string(),
+            AMP_ATTACK | AMP_DECAY | AMP_RELEASE | FILTER_ATTACK | FILTER_DECAY | FILTER_RELEASE =>
+                "s".to_string(),
 
-            _ => "%".to_string(),
+            _ => "".to_string(),
         }
     }
 
     fn get_parameter_text(&self, index: i32) -> String {
-        match index {
-            ENV_ATTACK =>
+        match index as usize {
+            NOISE_COLOR => {
+                let value = self.state_record.lock().unwrap()[index as usize].round() as u8;
+                match value {
+                    0 => "white".to_string(),
+                    1 => "pink".to_string(),
+                    _ => "Invalid value".to_string(),
+                }
+            }
+
+            PHASE_SHIFT_MOD_SHAPE | PITCH_MOD_SHAPE | FILTER_CUTOFF_MOD_SHAPE => {
+                let value = (self.state_record.lock().unwrap()[index as usize] * 4.0).round() as u8;
+                match value {
+                    0 => "sine".to_string(),
+                    1 => "square".to_string(),
+                    2 => "triangle".to_string(),
+                    3 => "saw".to_string(),
+                    4 => "sample and hold".to_string(),
+                    _ => "Invalid value".to_string(),
+                }
+            }
+
+            FILTER_ATTACK | AMP_ATTACK =>
                 format!(
                     "{:.2}",
                     f32::abs(
                         self.state_record.lock().unwrap()[index as usize] * MAX_ENV_ATTACK_TIME
                     )
                 ),
-            ENV_DECAY =>
+
+            FILTER_DECAY | AMP_DECAY =>
                 format!(
                     "{:.2}",
                     f32::abs(self.state_record.lock().unwrap()[index as usize] * MAX_ENV_DECAY_TIME)
                 ),
-            ENV_SUSTAIN_LEVEL =>
+
+            FILTER_SUSTAIN_LEVEL | AMP_SUSTAIN_LEVEL =>
                 format!("{:.2}", f32::abs(self.state_record.lock().unwrap()[index as usize])),
-            ENV_RELEASE =>
+
+            FILTER_RELEASE | AMP_RELEASE =>
                 format!(
                     "{:.2}",
                     f32::abs(
                         self.state_record.lock().unwrap()[index as usize] * MAX_ENV_RELEASE_TIME
                     )
                 ),
-            PULSE_WIDTH =>
-                format!("{:.2}", f32::abs(self.state_record.lock().unwrap()[index as usize] - 0.5)),
-            _ => format!("{:.2}", self.state_record.lock().unwrap()[index as usize] * 100.0),
+
+            _ => format!("{:.1}", self.state_record.lock().unwrap()[index as usize] * 100.0),
         }
     }
 
     fn get_parameter_name(&self, index: i32) -> String {
         (
-            match index {
-                SINE_AMP => "Sine", // sinewave mix
-  
-                PULSE_AMP => "Pulse", // sub mix
-                PULSE_WIDTH => "Pulse width", // pulse width
-                PULSE_WIDTH_MOD => "Pulse width modulation",
+            match index as usize {
+                NOISE_AMP => "Noise",
+                NOISE_COLOR => "Noise Color",
+
+                SINE_AMP => "Sine",
+                SINE_OCTAVE => "SineOctave",
+
+                PULSE_AMP => "Pulse",
+                PULSE_WIDTH => "Pulse width",
+                PULSE_WIDTH_MOD_AMP => "Pulse width modulation amplitude",
                 PULSE_WIDTH_MOD_FREQ => "Pulse width modulation frequency",
 
-                SAWTOOTH_AMP => "Sawtooth", // ramp mix
-                SAWTOOTH_WIDTH => "Sawtooth width",
+                SAWTOOTH_AMP => "Sawtooth",
+                SAWTOOTH_SHAPE => "Sawtooth width",
 
-                STEREO_WIDTH => "Stereo width",
-                STEREO_MODULATION_FREQ => "Stereo modulation frequency",
+                PHASE_SHIFT_AMOUNT => "Channel phase shift amount",
+                PHASE_SHIFT_MOD_FREQ => "Phase shift modulation frequency",
+                PHASE_SHIFT_MOD_SHAPE => "Phase shift modulation wave form",
 
-                PITCH_MODULATION_AMP => "Pitch modulation amplitude", // modulation
-                PITCH_MODULATION_FREQ => "Pitch modulation frequency", // modulation frequency
+                PITCH_MOD_SHAPE => "Pitch modulation waveform",
+                PITCH_MOD_AMP => "Pitch modulation amplitude",
+                PITCH_MOD_FREQ => "Pitch modulation frequency",
 
-                ENV_ATTACK => "Env Attack", // attack
-                ENV_DECAY => "Env  Decay",
-                ENV_SUSTAIN_LEVEL => "Env  Sustain",
-                ENV_RELEASE => "Env  Release",
+                AMP_ATTACK => "Attack",
+                AMP_DECAY => "Decay",
+                AMP_SUSTAIN_LEVEL => "Sustain",
+                AMP_RELEASE => "Release",
 
-                FILTER_ATTACK => "Filter Attack", // attack
-                FILTER_DECAY => "Filter Decay", // decay
-                FITER_SUSTAIN_LEVEL => "Fiter Sustain",
-                FILTER_RELEASE => "Filter Release", // release
+                FILTER_ATTACK => "Filter Attack",
+                FILTER_DECAY => "Filter Decay",
+                FILTER_SUSTAIN_LEVEL => "Fiter Sustain",
+                FILTER_RELEASE => "Filter Release",
 
-                FILTER_CUTOFF => "Filter Cutoff",
-                FILTER_RESONANCE => "Filter Resonance",
-                FILTER_POLES => "Filter Poles",
-                FILTER_DRIVE => "Filter Drive",
+                FILTER_CUTOFF => "Cutoff",
+                FILTER_RESONANCE => "Resonance",
+                FILTER_POLES => "Poles",
+                FILTER_DRIVE => "Drive",
+
+                FILTER_CUTOFF_MOD_SHAPE => "Cutoff modulation waveform",
+                FILTER_CUTOFF_MOD_AMP => "Cutoff modulation amplitude",
+                FILTER_CUTOFF_MOD_FREQ => "Cutoff modulation frequency",
 
                 _ => "Unknown",
             }

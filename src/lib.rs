@@ -28,42 +28,60 @@ use plugin_state::PluginState;
 
 mod wave_math;
 
-pub const NUM_VOICES: i32 = 16;
-pub const NUM_PARAMETERS: i32 = 21;
+pub const NUM_VOICES: i32 = 12;
+pub const NUM_PARAMETERS: i32 = 31;
 
 // parameter indexes
-pub const SINE_AMP: i32 = 0;
 
-pub const PULSE_AMP: i32 = 1;
-pub const PULSE_WIDTH: i32 = 2;
-pub const PULSE_WIDTH_MOD: i32 = 3;
-pub const PULSE_WIDTH_MOD_FREQ: i32 = 4;
+// noise
+pub const NOISE_AMP: usize = 0;
+pub const NOISE_COLOR: usize = 1;
 
-pub const SAWTOOTH_AMP: i32 = 5;
-pub const SAWTOOTH_WIDTH: i32 = 6;
+// sine waveform
+pub const SINE_AMP: usize = 2;
+pub const SINE_OCTAVE: usize = 3;
 
-pub const STEREO_WIDTH: i32 = 7;
-pub const STEREO_MODULATION_FREQ: i32 = 8;
+// pwm waveform
+pub const PULSE_AMP: usize = 4;
+pub const PULSE_WIDTH: usize = 5;
+pub const PULSE_WIDTH_MOD_AMP: usize = 6;
+pub const PULSE_WIDTH_MOD_FREQ: usize = 7;
 
-pub const PITCH_MODULATION_AMP: i32 = 10;
-pub const PITCH_MODULATION_FREQ: i32 = 11;
+// sawtooth waveform
+pub const SAWTOOTH_AMP: usize = 8;
+pub const SAWTOOTH_SHAPE: usize = 9;
+
+// stereo modulators
+pub const PHASE_SHIFT_MOD_SHAPE: usize = 10;
+pub const PHASE_SHIFT_AMOUNT: usize = 11;
+pub const PHASE_SHIFT_MOD_FREQ: usize = 12;
+
+// pitch modulators
+pub const PITCH_MOD_SHAPE: usize = 13;
+pub const PITCH_MOD_AMP: usize = 14;
+pub const PITCH_MOD_FREQ: usize = 15;
 
 // amp envelope
-pub const ENV_ATTACK: i32 =12;
-pub const ENV_DECAY: i32 =13;
-pub const ENV_SUSTAIN_LEVEL: i32 =14;
-pub const ENV_RELEASE: i32 =15;
+pub const AMP_ATTACK: usize =16;
+pub const AMP_DECAY: usize =17;
+pub const AMP_SUSTAIN_LEVEL: usize =18;
+pub const AMP_RELEASE: usize =19;
 
 // filter envelope
-pub const FILTER_ATTACK: i32 = 16;
-pub const FILTER_DECAY: i32 = 17;
-pub const FITER_SUSTAIN_LEVEL: i32 = 18;
-pub const FILTER_RELEASE: i32 = 19;
+pub const FILTER_ATTACK: usize = 20;
+pub const FILTER_DECAY: usize = 21;
+pub const FILTER_SUSTAIN_LEVEL: usize = 22;
+pub const FILTER_RELEASE: usize = 23;
 // filter modifiers
-pub const FILTER_CUTOFF: i32 =20;
-pub const FILTER_RESONANCE:i32 = 21;
-pub const FILTER_POLES:i32 = 22;
-pub const FILTER_DRIVE:i32 = 23;
+pub const FILTER_CUTOFF: usize =24;
+pub const FILTER_RESONANCE:usize = 25;
+pub const FILTER_POLES:usize = 26;
+pub const FILTER_DRIVE:usize = 27;
+
+pub const FILTER_CUTOFF_MOD_SHAPE: usize = 28;
+pub const FILTER_CUTOFF_MOD_AMP: usize = 29;
+pub const FILTER_CUTOFF_MOD_FREQ: usize = 30;
+
 // values
 pub const MIN_ENV_ATTACK_TIME: f32 = 0.001; // prevent pop
 pub const MAX_ENV_ATTACK_TIME: f32 = 1.0;
@@ -189,7 +207,7 @@ impl Plugin for MachineElf {
             outputs: 2,
             parameters: NUM_PARAMETERS,
             initial_delay: 0,
-            preset_chunks: true,
+            preset_chunks: false,
             ..Info::default()
         }
     }

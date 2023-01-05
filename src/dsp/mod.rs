@@ -7,9 +7,8 @@
 //! the number of messages passed.
 
 use crate::{ plugin_state::StateUpdate, * };
-use std::{ sync::mpsc::Receiver, f32::consts::PI };
+use std::{ sync::mpsc::Receiver };
 use crate::{ wave_math::* };
-
 use vst::{ buffer::AudioBuffer };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -39,7 +38,7 @@ pub(super) struct PluginDsp {
     time: f32,
     voices: Vec<Voice>, //state, note, duration, amplitude
     parameter: Vec<f32>,
-    messages_from_params: Receiver<StateUpdate>,
+    messages_from_params: Receiver<StateUpdate>
 }
 
 impl PluginDsp {
@@ -48,8 +47,8 @@ impl PluginDsp {
             time: 0.0,
             sample_rate: 44100.0,
             voices: vec![Voice::default(); NUM_VOICES as usize],
-            parameter: vec![0.5; NUM_PARAMETERS as usize],
-            messages_from_params: incoming_messages,
+            parameter: vec![0.0; NUM_PARAMETERS as usize],
+            messages_from_params: incoming_messages
         }
     }
 
@@ -93,7 +92,7 @@ impl PluginDsp {
             VoiceState::Attack => {
                 // grow volume slope /
                 if self.voices[i].amplitude < 1.0 {
-                    let attack_time = self.parameter[ENV_ATTACK as usize] * MAX_ENV_ATTACK_TIME;
+                    let attack_time = self.parameter[AMP_ATTACK as usize] * MAX_ENV_ATTACK_TIME;
                     let slope_up: f32 = time_per_sample / attack_time;
                     self.voices[i].amplitude += slope_up;
                 } else {
@@ -104,10 +103,10 @@ impl PluginDsp {
                 self.voices[i].amplitude
             }
             VoiceState::Decay => {
-                let sustain_level: f32 = self.parameter[ENV_SUSTAIN_LEVEL as usize];
+                let sustain_level: f32 = self.parameter[AMP_SUSTAIN_LEVEL as usize];
                 if self.voices[i].amplitude > sustain_level {
                     // reduce volume slope \
-                    let decay_time: f32 = self.parameter[ENV_DECAY as usize] * MAX_ENV_DECAY_TIME;
+                    let decay_time: f32 = self.parameter[AMP_DECAY as usize] * MAX_ENV_DECAY_TIME;
                     let slope_down: f32 = time_per_sample / decay_time;
                     self.voices[i].amplitude -= slope_down;
                 } else {
@@ -117,13 +116,13 @@ impl PluginDsp {
                 self.voices[i].amplitude
             }
             VoiceState::Sustain => {
-                let sustain_level: f32 = self.parameter[ENV_SUSTAIN_LEVEL as usize];
+                let sustain_level: f32 = self.parameter[AMP_SUSTAIN_LEVEL as usize];
                 self.voices[i].amplitude = sustain_level;
                 self.voices[i].amplitude
             }
             VoiceState::Release => {
                 if self.voices[i].amplitude > 0.0 {
-                    let release_time = self.parameter[ENV_RELEASE as usize] * MAX_ENV_RELEASE_TIME;
+                    let release_time = self.parameter[AMP_RELEASE as usize] * MAX_ENV_RELEASE_TIME;
                     let slope_down: f32 = time_per_sample / release_time;
                     self.voices[i].amplitude -= slope_down;
                 } else {
@@ -155,21 +154,24 @@ impl PluginDsp {
 
         for sample_idx in 0..samples {
             // get modulation controls
-            let sine_amp: f32 = self.parameter[SINE_AMP as usize];
+            let noise_amp: f32 = self.parameter[NOISE_AMP];
+            let noise_color = self.parameter[NOISE_COLOR].round() as u8;
 
-            let pulse_width = self.parameter[PULSE_WIDTH as usize];
-            let pulse_width_mod: f32 = self.parameter[PULSE_WIDTH_MOD as usize];
-            let pulse_width_mod_freq: f32 = self.parameter[PULSE_WIDTH_MOD_FREQ as usize];
-            let pulse_amp: f32 = self.parameter[PULSE_AMP as usize];
+            let sine_amp: f32 = self.parameter[SINE_AMP];
 
-            let sawtooth_width: f32 = self.parameter[SAWTOOTH_WIDTH as usize];
-            let sawtooth_amp: f32 = self.parameter[SAWTOOTH_AMP as usize];
+            let pulse_width = self.parameter[PULSE_WIDTH];
+            let pulse_width_mod: f32 = self.parameter[PULSE_WIDTH_MOD_AMP];
+            let pulse_width_mod_freq: f32 = self.parameter[PULSE_WIDTH_MOD_FREQ];
+            let pulse_amp: f32 = self.parameter[PULSE_AMP];
 
-            let pitch_mod: f32 = self.parameter[PITCH_MODULATION_AMP as usize];
-            let pitch_mod_freq: f32 = self.parameter[PITCH_MODULATION_FREQ as usize];
+            let sawtooth_width: f32 = self.parameter[SAWTOOTH_SHAPE];
+            let sawtooth_amp: f32 = self.parameter[SAWTOOTH_AMP];
 
-            let stereo_width: f32 = self.parameter[STEREO_WIDTH as usize];
-            let stereo_mod: f32 = self.parameter[STEREO_MODULATION_FREQ as usize];
+            let pitch_mod: f32 = self.parameter[PITCH_MOD_AMP];
+            let pitch_mod_freq: f32 = self.parameter[PITCH_MOD_FREQ];
+
+            let stereo_width: f32 = self.parameter[PHASE_SHIFT_AMOUNT];
+            let stereo_mod: f32 = self.parameter[PHASE_SHIFT_MOD_FREQ];
 
             let phase_modulator: f32 = (self.time * stereo_mod * 100.0).sin() + 1.0;
             let pulse_width_modulator: f32 =
@@ -179,12 +181,24 @@ impl PluginDsp {
             // mutated between channels
             let mut channel_phase_shift_amount: f32 = 0.0;
 
+            let noise = if noise_amp <= 0.0 {
+                0.0
+            } else {
+                match noise_color {
+                    1 => generate_pink_noise(noise_amp),
+                    _ => generate_white_noise(noise_amp),
+                }
+            };
+
             for output_idx in 0..outputs.len() {
                 let mut signal = 0.0;
                 let mut max_signal = 1.0;
                 for i in 1..self.voices.len() {
                     if self.voices[i].state != VoiceState::Off {
-                        let base_freq = midi_pitch_to_freq(self.voices[i].note) * 2.0 +pitch_modulator;
+                        signal += noise;
+
+                        let base_freq =
+                            midi_pitch_to_freq(self.voices[i].note) * 2.0 + pitch_modulator;
                         let time = phase_shifted_time(
                             self.time,
                             base_freq,
@@ -200,7 +214,12 @@ impl PluginDsp {
                             pulse_amp
                         );
 
-                        signal += generate_sawtooth_wave(time, base_freq, sawtooth_width, sawtooth_amp);
+                        signal += generate_sawtooth_wave(
+                            time,
+                            base_freq,
+                            sawtooth_width,
+                            sawtooth_amp
+                        );
 
                         signal *= self.adsr_for_voice(i);
 
