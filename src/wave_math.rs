@@ -2,6 +2,10 @@ use std::f32::consts::PI;
 
 pub const TAU: f32 = PI * 2.0;
 
+
+pub fn parameter_to_u8(value:f32, steps:i32) -> u8 {
+    (value * steps as f32).round() as u8
+}
 /// Convert the midi note's pitch into the equivalent frequency.
 ///
 /// This function assumes A4 is 440hz.
@@ -20,7 +24,7 @@ pub fn _generate_pulse_treshold(value: f32, tresh: f32) -> f32 {
     if value > tresh { 1.0 } else if value < tresh { -1.0 } else { 0.0 }
 }
 
-pub fn _generate_square_wave(time: f32, base_freq: f32, amp: f32) -> f32 {
+pub fn generate_square_wave(time: f32, base_freq: f32, amp: f32) -> f32 {
     let period: f32 = 1.0 / base_freq;
     let t: f32 = time % period;
     if t < period / 2.0 {
@@ -40,7 +44,7 @@ pub fn generate_pulse_wave(time: f32, base_freq: f32, pulse_width: f32, amp: f32
     }
 }
 
-pub fn _generate_triangle_wave(time: f32, base_freq: f32, amp: f32) -> f32 {
+pub fn generate_triangle_wave(time: f32, base_freq: f32, amp: f32) -> f32 {
     let period = 1.0 / base_freq;
     let t = time % period;
     if t < period / 2.0 {
@@ -76,3 +80,14 @@ pub fn generate_pink_noise(amp: f32) -> f32 {
     // TODO, needs to generate buffer
     (rand::random::<f32>() - 0.5) * amp
 }
+
+pub fn lfo(shape:u8, time: f32, base_freq: f32, amp: f32) -> f32 {
+    match shape {
+        0 => generate_sine_wave(time, base_freq, amp),
+        1 => generate_square_wave(time, base_freq, amp),
+        2 => generate_triangle_wave(time, base_freq, amp),
+        3 => generate_sawtooth_wave(time, base_freq, 0.0, amp),
+        _ => 0.0
+    }
+}
+

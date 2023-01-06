@@ -38,7 +38,7 @@ pub(super) struct PluginDsp {
     time: f32,
     voices: Vec<Voice>, //state, note, duration, amplitude
     parameter: Vec<f32>,
-    messages_from_params: Receiver<StateUpdate>
+    messages_from_params: Receiver<StateUpdate>,
 }
 
 impl PluginDsp {
@@ -48,7 +48,7 @@ impl PluginDsp {
             sample_rate: 44100.0,
             voices: vec![Voice::default(); NUM_VOICES as usize],
             parameter: vec![0.0; NUM_PARAMETERS as usize],
-            messages_from_params: incoming_messages
+            messages_from_params: incoming_messages,
         }
     }
 
@@ -155,7 +155,7 @@ impl PluginDsp {
         for sample_idx in 0..samples {
             // get modulation controls
             let noise_amp: f32 = self.parameter[NOISE_AMP];
-            let noise_color = self.parameter[NOISE_COLOR].round() as u8;
+            let noise_color = parameter_to_u8(self.parameter[NOISE_COLOR], 1);
 
             let sine_amp: f32 = self.parameter[SINE_AMP];
 
@@ -164,19 +164,31 @@ impl PluginDsp {
             let pulse_width_mod_freq: f32 = self.parameter[PULSE_WIDTH_MOD_FREQ];
             let pulse_amp: f32 = self.parameter[PULSE_AMP];
 
-            let sawtooth_width: f32 = self.parameter[SAWTOOTH_SHAPE];
             let sawtooth_amp: f32 = self.parameter[SAWTOOTH_AMP];
+            let sawtooth_shape: f32 = self.parameter[SAWTOOTH_SHAPE];
 
-            let pitch_mod: f32 = self.parameter[PITCH_MOD_AMP];
+            let phase_shift_mod_shape = parameter_to_u8(self.parameter[PHASE_SHIFT_MOD_SHAPE], 4);
+            let phase_shift_amount: f32 = self.parameter[PHASE_SHIFT_AMOUNT];
+            let phase_shift_freq: f32 = self.parameter[PHASE_SHIFT_MOD_FREQ];
+
+            let pitch_mod_shape = parameter_to_u8(self.parameter[PITCH_MOD_SHAPE], 4);
+            let pitch_mod_amp: f32 = self.parameter[PITCH_MOD_AMP];
             let pitch_mod_freq: f32 = self.parameter[PITCH_MOD_FREQ];
 
-            let stereo_width: f32 = self.parameter[PHASE_SHIFT_AMOUNT];
-            let stereo_mod: f32 = self.parameter[PHASE_SHIFT_MOD_FREQ];
+            let phase_modulator: f32 = if phase_shift_amount > 0.0 {
+                lfo(phase_shift_mod_shape, self.time, phase_shift_freq, phase_shift_amount)
+            } else {
+                0.0
+            };
 
-            let phase_modulator: f32 = (self.time * stereo_mod * 100.0).sin() + 1.0;
             let pulse_width_modulator: f32 =
                 (self.time * pulse_width_mod_freq).sin() * pulse_width_mod;
-            let pitch_modulator: f32 = (self.time * pitch_mod_freq * 100.0).sin() * pitch_mod;
+
+            let pitch_modulator: f32 = if pitch_mod_amp > 0.0 {
+                lfo(pitch_mod_shape, self.time, pitch_mod_freq * 100.0, pitch_mod_amp)
+            } else {
+                0.0
+            };
 
             // mutated between channels
             let mut channel_phase_shift_amount: f32 = 0.0;
@@ -217,7 +229,7 @@ impl PluginDsp {
                         signal += generate_sawtooth_wave(
                             time,
                             base_freq,
-                            sawtooth_width,
+                            sawtooth_shape,
                             sawtooth_amp
                         );
 
@@ -228,7 +240,7 @@ impl PluginDsp {
                 }
                 let buff = outputs.get_mut(output_idx);
                 buff[sample_idx] = scale_to_range(signal, 1.0, max_signal);
-                channel_phase_shift_amount += stereo_width; // introduce timeshift between channels
+                channel_phase_shift_amount += phase_shift_amount; // introduce timeshift between channels
             }
             self.time += time_per_sample;
         }
