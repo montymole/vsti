@@ -6,7 +6,7 @@
 //! struct to ensure that parameters are consistently and efficiently interpolated while minimizing
 //! the number of messages passed.
 
-use crate::{ plugin_state::StateUpdate, * };
+use crate::{ plugin_state::StateUpdate, *, wave_table::Wavetable };
 use std::{ sync::mpsc::Receiver };
 use crate::{ wave_math::* };
 use vst::{ buffer::AudioBuffer };
@@ -39,6 +39,7 @@ pub(super) struct PluginDsp {
     voices: Vec<Voice>, //state, note, duration, amplitude
     parameter: Vec<f32>,
     messages_from_params: Receiver<StateUpdate>,
+    wave_table: Wavetable,
 }
 
 impl PluginDsp {
@@ -49,6 +50,7 @@ impl PluginDsp {
             voices: vec![Voice::default(); NUM_VOICES as usize],
             parameter: vec![0.0; NUM_PARAMETERS as usize],
             messages_from_params: incoming_messages,
+            wave_table: Wavetable::default()
         }
     }
 
@@ -154,93 +156,31 @@ impl PluginDsp {
 
         for sample_idx in 0..samples {
             // get modulation controls
-            let noise_amp: f32 = self.parameter[NOISE_AMP];
-            let noise_color = parameter_to_u8(self.parameter[NOISE_COLOR], 1);
+            let wave_table_amp: f32 = self.parameter[WAVE_TABLE_AMP];
+            let shape_rot_x: f32 = self.parameter[SHAPE_ROT_X];
+            let shape_rot_y: f32 = self.parameter[SHAPE_ROT_Y];
+            let shape_rot_z: f32 = self.parameter[SHAPE_ROT_Z];
+            let shape_morph: f32 = self.parameter[SHAPE_MORPH];
 
-            let sine_amp: f32 = self.parameter[SINE_AMP];
-
-            let pulse_width = self.parameter[PULSE_WIDTH];
-            let pulse_width_mod: f32 = self.parameter[PULSE_WIDTH_MOD_AMP];
-            let pulse_width_mod_freq: f32 = self.parameter[PULSE_WIDTH_MOD_FREQ];
-            let pulse_amp: f32 = self.parameter[PULSE_AMP];
-
-            let sawtooth_amp: f32 = self.parameter[SAWTOOTH_AMP];
-            let sawtooth_shape: f32 = self.parameter[SAWTOOTH_SHAPE];
-
-            let phase_shift_mod_shape = parameter_to_u8(self.parameter[PHASE_SHIFT_MOD_SHAPE], 4);
-            let phase_shift_amount: f32 = self.parameter[PHASE_SHIFT_AMOUNT];
-            let phase_shift_freq: f32 = self.parameter[PHASE_SHIFT_MOD_FREQ];
-
-            let pitch_mod_shape = parameter_to_u8(self.parameter[PITCH_MOD_SHAPE], 4);
-            let pitch_mod_amp: f32 = self.parameter[PITCH_MOD_AMP];
-            let pitch_mod_freq: f32 = self.parameter[PITCH_MOD_FREQ];
-
-            let phase_modulator: f32 = if phase_shift_amount > 0.0 {
-                lfo(phase_shift_mod_shape, self.time, phase_shift_freq, phase_shift_amount)
-            } else {
-                0.0
-            };
-
-            let pulse_width_modulator: f32 =
-                (self.time * pulse_width_mod_freq).sin() * pulse_width_mod;
-
-            let pitch_modulator: f32 = if pitch_mod_amp > 0.0 {
-                lfo(pitch_mod_shape, self.time, pitch_mod_freq * 100.0, pitch_mod_amp)
-            } else {
-                0.0
-            };
-
-            // mutated between channels
-            let mut channel_phase_shift_amount: f32 = 0.0;
-
-            let noise = if noise_amp <= 0.0 {
-                0.0
-            } else {
-                match noise_color {
-                    1 => generate_pink_noise(noise_amp),
-                    _ => generate_white_noise(noise_amp),
-                }
-            };
 
             for output_idx in 0..outputs.len() {
                 let mut signal = 0.0;
-                let mut max_signal = 1.0;
                 for i in 1..self.voices.len() {
                     if self.voices[i].state != VoiceState::Off {
-                        signal += noise;
 
-                        let base_freq =
-                            midi_pitch_to_freq(self.voices[i].note) * 2.0 + pitch_modulator;
-                        let time = phase_shifted_time(
-                            self.time,
-                            base_freq,
-                            channel_phase_shift_amount * phase_modulator
-                        );
+                        let base_freq = midi_pitch_to_freq(self.voices[i].note) * 2.0;
+                        let amp = self.adsr_for_voice(i) * 10.0;
+                        if output_idx == 0 
+                        {
+                            signal += self.wave_table.get_wave(self.time, base_freq, shape_morph, wave_table_amp*amp).0;
+                        } else {
+                            signal += self.wave_table.get_wave(self.time, base_freq, shape_morph, wave_table_amp*amp).1;
+                        }
 
-                        signal += generate_sine_wave(time, base_freq, sine_amp);
-
-                        signal += generate_pulse_wave(
-                            time,
-                            base_freq,
-                            pulse_width + pulse_width_modulator,
-                            pulse_amp
-                        );
-
-                        signal += generate_sawtooth_wave(
-                            time,
-                            base_freq,
-                            sawtooth_shape,
-                            sawtooth_amp
-                        );
-
-                        signal *= self.adsr_for_voice(i);
-
-                        max_signal += 1.0; // each active voise adds range
                     }
                 }
                 let buff = outputs.get_mut(output_idx);
-                buff[sample_idx] = scale_to_range(signal, 1.0, max_signal);
-                channel_phase_shift_amount += phase_shift_amount; // introduce timeshift between channels
+                buff[sample_idx] = scale_to_range(signal, 1.0, 6.0);
             }
             self.time += time_per_sample;
         }

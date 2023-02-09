@@ -6,7 +6,14 @@
 use vst_window::WindowEvent;
 
 use super::{ image_consts::{ ORIG_KNOB_RADIUS, ORIG_KNOB_X, ORIG_KNOB_Y }, SCALE, SIZE_X, SIZE_Y };
-use crate::plugin_state::StateUpdate;
+use crate::{
+    plugin_state::StateUpdate,
+    SHAPE_ROT_X,
+    SHAPE_ROT_Y,
+    SHAPE_ROT_Z,
+    SHAPE_MORPH,
+    WAVE_TABLE_AMP,
+};
 
 /// All the possible ways a click+drag operation on the interface window might be interpreted.
 enum DragBehavior {
@@ -20,6 +27,10 @@ enum DragBehavior {
 pub(in crate::editor) struct InterfaceState {
     /// Represents the position of the knob, from 0 to 1.
     pub amplitude_value: f32,
+    pub rotation_x_value: f32,
+    pub rotation_y_value: f32,
+    pub rotation_z_value: f32,
+    pub morph_value: f32,
     /// (X, Y) pixel coordinate of the cursor, from the top-left corner.
     /// Coordinates could be negative if the cursor is dragged outside of the window!
     cursor_pos: (isize, isize),
@@ -34,19 +45,40 @@ const KNOB_RADIUS: usize = ((ORIG_KNOB_RADIUS as f64) * SCALE) as usize;
 const KNOB_CHANGE_SPEED: f32 = 0.5;
 
 impl InterfaceState {
-    pub fn new(amplitude_value: f32) -> Self {
+    pub fn new() -> Self {
         Self {
-            amplitude_value,
+            amplitude_value: Default::default(),
+            rotation_x_value: Default::default(),
+            rotation_y_value: Default::default(),
+            rotation_z_value: Default::default(),
+            morph_value: Default::default(),
             cursor_pos: Default::default(),
             drag_behavior: None,
-            note: None
+            note: None,
         }
     }
     /// Update the editor state in response to an external message.
     pub fn react_to_control_event(&mut self, event: StateUpdate) {
         match event {
             StateUpdate::SetKnob(index, value) => {
-                self.amplitude_value = value;
+                match index as usize {
+                    WAVE_TABLE_AMP => {
+                        self.amplitude_value = value;
+                    }
+                    SHAPE_ROT_X => {
+                        self.rotation_x_value = value;
+                    }
+                    SHAPE_ROT_Y => {
+                        self.rotation_y_value = value;
+                    }
+                    SHAPE_ROT_Z => {
+                        self.rotation_z_value = value;
+                    }
+                    SHAPE_MORPH => {
+                        self.morph_value = value;
+                    }
+                    _ => (),
+                }
             }
             StateUpdate::NoteOn(n) => {
                 self.note = Some(n);
@@ -78,7 +110,7 @@ impl InterfaceState {
                     )
                         .max(0.0)
                         .min(1.0);
-                    remote_state.set_amplitude_control(self.amplitude_value);
+                    remote_state.set_knob_control(0,self.amplitude_value);
                 }
             }
             WindowEvent::MouseClick(button) => {
@@ -94,7 +126,7 @@ impl InterfaceState {
                         });
                     } else if button == vst_window::MouseButton::Right {
                         self.amplitude_value = 0.5;
-                        remote_state.set_amplitude_control(self.amplitude_value);
+                        remote_state.set_knob_control(0,self.amplitude_value);
                     }
                 }
             }

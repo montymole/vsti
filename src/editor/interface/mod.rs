@@ -31,7 +31,7 @@ mod image_consts {
 }
 
 /// Display scale of the entire UI.
-const SCALE: f64 = 0.5;
+const SCALE: f64 = 0.75;
 
 /// Actual pixel width of the editor window.
 pub(super) const SIZE_X: usize = (image_consts::ORIG_BG_SIZE_X as f64 * SCALE) as usize;

@@ -17,6 +17,7 @@ use vst::{
     plugin::{ CanDo, HostCallback, Info, Plugin, PluginParameters, Category },
 };
 
+
 mod dsp;
 use dsp::PluginDsp;
 
@@ -26,67 +27,33 @@ use editor::PluginEditor;
 mod plugin_state;
 use plugin_state::PluginState;
 
+mod wave_table;
 mod wave_math;
 
 pub const NUM_VOICES: i32 = 12;
-pub const NUM_PARAMETERS: i32 = 31;
+pub const NUM_PARAMETERS: i32 = 9;
 
 // parameter indexes
 
-// noise
-pub const NOISE_AMP: usize = 0;
-pub const NOISE_COLOR: usize = 1;
-
-// sine waveform
-pub const SINE_AMP: usize = 2;
-pub const SINE_OCTAVE: usize = 3;
-
-// pwm waveform
-pub const PULSE_AMP: usize = 4;
-pub const PULSE_WIDTH: usize = 5;
-pub const PULSE_WIDTH_MOD_AMP: usize = 6;
-pub const PULSE_WIDTH_MOD_FREQ: usize = 7;
-
-// sawtooth waveform
-pub const SAWTOOTH_AMP: usize = 8;
-pub const SAWTOOTH_SHAPE: usize = 9;
-
-// stereo modulators
-pub const PHASE_SHIFT_MOD_SHAPE: usize = 10;
-pub const PHASE_SHIFT_AMOUNT: usize = 11;
-pub const PHASE_SHIFT_MOD_FREQ: usize = 12;
-
-// pitch modulators
-pub const PITCH_MOD_SHAPE: usize = 13;
-pub const PITCH_MOD_AMP: usize = 14;
-pub const PITCH_MOD_FREQ: usize = 15;
+// wave table
+pub const WAVE_TABLE_AMP: usize = 0;
+pub const SHAPE_ROT_X: usize = 1;
+pub const SHAPE_ROT_Y: usize = 2;
+pub const SHAPE_ROT_Z: usize = 3;
+pub const SHAPE_MORPH: usize = 4;
 
 // amp envelope
-pub const AMP_ATTACK: usize =16;
-pub const AMP_DECAY: usize =17;
-pub const AMP_SUSTAIN_LEVEL: usize =18;
-pub const AMP_RELEASE: usize =19;
-
-// filter envelope
-pub const FILTER_ATTACK: usize = 20;
-pub const FILTER_DECAY: usize = 21;
-pub const FILTER_SUSTAIN_LEVEL: usize = 22;
-pub const FILTER_RELEASE: usize = 23;
-// filter modifiers
-pub const FILTER_CUTOFF: usize =24;
-pub const FILTER_RESONANCE:usize = 25;
-pub const FILTER_POLES:usize = 26;
-pub const FILTER_DRIVE:usize = 27;
-
-pub const FILTER_CUTOFF_MOD_SHAPE: usize = 28;
-pub const FILTER_CUTOFF_MOD_AMP: usize = 29;
-pub const FILTER_CUTOFF_MOD_FREQ: usize = 30;
+pub const AMP_ATTACK: usize = 5;
+pub const AMP_DECAY: usize = 6;
+pub const AMP_SUSTAIN_LEVEL: usize = 7;
+pub const AMP_RELEASE: usize = 8;
 
 // values
 pub const MIN_ENV_ATTACK_TIME: f32 = 0.001; // prevent pop
 pub const MAX_ENV_ATTACK_TIME: f32 = 1.0;
 pub const MAX_ENV_DECAY_TIME: f32 = 2.0;
 pub const MAX_ENV_RELEASE_TIME: f32 = 1.0;
+
 
 /// Top level wrapper that exposes a full `vst::Plugin` implementation.
 struct MachineElf {
@@ -235,12 +202,11 @@ impl Plugin for MachineElf {
     fn get_parameter_object(&mut self) -> Arc<dyn PluginParameters> {
         Arc::clone(&self.state_handle) as Arc<dyn PluginParameters>
     }
-
-    /*
+/*
     fn get_editor(&mut self) -> Option<Box<dyn Editor>> {
         self.editor_placeholder.take().map(|editor| Box::new(editor) as Box<dyn Editor>)
     }
-    */
+*/
 }
 
 vst::plugin_main!(MachineElf);

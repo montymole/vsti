@@ -16,6 +16,15 @@ pub fn midi_pitch_to_freq(pitch: u8) -> f32 {
     (f32::from((pitch as i8) - A4_PITCH) / 12.0).exp2() * A4_FREQ
 }
 
+
+pub fn generate_one_cycle_sin(t:f32) -> f32 {
+    (t*TAU).sin()
+}
+
+pub fn generate_one_cycle_square(t:f32) -> f32 {
+    if t > 0.0 { 1.0 } else { -1.0 }
+}
+
 pub fn generate_sine_wave(time: f32, base_freq: f32, amp: f32) -> f32 {
     (time * TAU * base_freq).sin() * amp
 }
@@ -73,11 +82,6 @@ pub fn scale_to_range(value: f32, range: f32, max_amp_abs: f32) -> f32 {
 }
 
 pub fn generate_white_noise(amp: f32) -> f32 {
-    (rand::random::<f32>() - 0.5) * amp
-}
-
-pub fn generate_pink_noise(amp: f32) -> f32 {
-    // TODO, needs to generate buffer
     (rand::random::<f32>() - 0.5) * amp
 }
 

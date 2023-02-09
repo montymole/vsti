@@ -7,7 +7,6 @@
 
 layout(location = 0) in vec2 position2D;
 layout(location = 1) in vec2 textureCoordInput;
-
 layout(location = 0) out vec2 textureCoordOutput;
 
 layout(set = 0, binding = 0) uniform Transform {
@@ -18,8 +17,8 @@ out gl_PerVertex {
     vec4 gl_Position;
 };
 
+
 void main() {
     textureCoordOutput = textureCoordInput;
-
     gl_Position = transform * vec4(position2D, 0.0, 1.0);
 }

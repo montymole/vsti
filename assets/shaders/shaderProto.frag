@@ -2,29 +2,40 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 
+#ifdef GL_ES
+precision highp float;
+#endif
+
 #define NEAR_CLIPPING_PLANE 1.0
-#define FAR_CLIPPING_PLANE 50.0
-#define NUMBER_OF_MARCH_STEPS 50
-#define EPSILON 0.001
+#define FAR_CLIPPING_PLANE 40.0
+#define NUMBER_OF_MARCH_STEPS 40
+#define EPSILON 0.0001
 #define DISTANCE_BIAS 1
 #define PI 3.14159
 #define PI2 2*PI
 
 #define NUM_WAVES 8
 
-#ifdef GL_ES
-precision highp float;
-#endif
+//uniform float time;
+//uniform vec2 resolution;
+//uniform vec2 mouse;
+//uniform vec3 spectrum;
+
+//uniform sampler2D texture0;
+
+//varying vec3 v_normal;
+//varying vec2 textureCoord;
 
 
 // Fragment shader that uses a texture coordinate to sample from a texture
 // uniform.
 layout(location = 0) in vec2 textureCoord;
+layout(location = 1) out vec4 outColor;
+//layout(location = 2) in float time;
+
+
 layout(set = 0, binding = 1) uniform texture2D backgroundTexture;
 layout(set = 0, binding = 2) uniform sampler textureSampler;
-
-layout(location = 0) out vec4 outColor;
-
 
 vec3 rotateX( in vec3 p, float t )
 {
@@ -97,15 +108,16 @@ vec2 gui(in vec3 pos, vec3 mouse3d) {
     return vec2(d,m);
 }
 
+
 vec3 normal(vec3 ray_hit_position, float smoothness, vec3 mouse_origin)
-{	
+{   
     // From https://www.shadertoy.com/view/MdSGDW
-	vec3 n;
-	vec2 dn = vec2(smoothness, 0.0);
-	n.x	= gui(ray_hit_position + dn.xyy, mouse_origin).x - gui(ray_hit_position - dn.xyy, mouse_origin).x;
-	n.y	= gui(ray_hit_position + dn.yxy, mouse_origin).x - gui(ray_hit_position - dn.yxy, mouse_origin).x;
-	n.z	= gui(ray_hit_position + dn.yyx, mouse_origin).x - gui(ray_hit_position - dn.yyx, mouse_origin).x;
-	return normalize(n);
+    vec3 n;
+    vec2 dn = vec2(smoothness, 0.0);
+    n.x = gui(ray_hit_position + dn.xyy, mouse_origin).x - gui(ray_hit_position - dn.xyy, mouse_origin).x;
+    n.y = gui(ray_hit_position + dn.yxy, mouse_origin).x - gui(ray_hit_position - dn.yxy, mouse_origin).x;
+    n.z = gui(ray_hit_position + dn.yyx, mouse_origin).x - gui(ray_hit_position - dn.yyx, mouse_origin).x;
+    return normalize(n);
 }
 
 vec2 raymarch(vec3 position, vec3 direction, vec3 mouse_origin )
@@ -164,42 +176,37 @@ vec4 renderShape(vec2 uv) {
 }
 
 
-
-void main(void) {
-    vec2 uv = -1.0 + 2.0 * textureCoord;
-   // outColor = texture(sampler2D(backgroundTexture, textureSampler), textureCoord);
-   outColor = vec4(uv.x,uv.y,.0,1.0);   
+void main(void)
+{
+    vec2 uv = -1 + 2. * textureCoord;
+    outColor = vec4(vec3(0.0),1.);
     
     // visualize 3d shape
-    vec2 shapeUV = uv * .5;
-    shapeUV.x += .2;
-    shapeUV.y += .2;
-     if (shapeUV.x < .2 && shapeUV.x > -.2) {
-        vec4 cube = renderShape(shapeUV);
-        outColor.b = 0.25;
-        if (cube.r > 0.001){
-            outColor += cube;
-        }
-     }
-
-    // visualize wavetable shapes
-    vec2 waveUV = uv* .5;
-    waveUV.x -= .2;
-    waveUV.y += .3;
-    if (waveUV.x < .2 && waveUV.x > -.2) {
-    float n = 0.0; // start WAVE plotting
-    for(int i = 0 ; i < NUM_WAVES ; ++i)
-    {
-        float wave = renderWave(vec2(waveUV.x, n));
-        outColor.r = 0.25;
-        if (abs((1.0-waveUV.y+n) - wave ) < 0.002) { 
-            outColor.g += .8;
-        }
-        n += 0.04; // step size
-     }
-    }
     
-       
-
-
+    //vec2 shapeUV = uv * 1.0;
+    //shapeUV.x += .2;
+    //if (shapeUV.x < .2 && shapeUV.x > -.2) {
+    //    vec4 cube = renderShape(shapeUV);
+    //    if (cube.r > 0.001){
+    //        outColor += cube *0.6;
+    //    }
+    //}
+    
+    // visualize wavetable shapes
+    //vec2 waveUV = uv* 1.0;
+    //waveUV.x -= .3;
+    //if (waveUV.x < .2 && waveUV.x > -.2) {
+    //float n = 0.0; // start WAVE plotting
+    //for(int i = 0 ; i < NUM_WAVES ; ++i)
+    //{
+    //    float wave = renderWave(vec2(waveUV.x, n));
+    //    if (abs((1.0-waveUV.y+n) - wave ) < 0.002) { 
+    //        outColor.g += .8;
+    //    }
+    //    n += 0.04; // step size
+    // }
+    //}
+    
+    
+   // gl_FragColor =  outColor;
 }

@@ -51,7 +51,7 @@ impl Editor for PluginEditor {
             match unsafe { setup(parent, (SIZE_X as i32, SIZE_Y as i32)) } {
                 Ok(window) => {
                     (*self.remote_state).set_event_subscription(true);
-                    let initial_state = InterfaceState::new(self.remote_state.get_parameter(0));
+                    let initial_state = InterfaceState::new();
                     self.opened_interface = Some(EditorInterface::new(window, initial_state));
                     true
                 }
@@ -94,7 +94,7 @@ pub(super) trait EditorRemoteState {
     /// While the event subscription is enabled, state update events will be sent over the
     /// `control_send` channel.
     fn set_event_subscription(&self, enabled: bool);
-    /// Sets the position of the amplitude control to a new fraction of its full range between 0
+    /// Sets the position of the  control to a new fraction of its full range between 0
     /// and 1.
-    fn set_amplitude_control(&self, value: f32);
+    fn set_knob_control(&self, index:i32, value: f32);
 }

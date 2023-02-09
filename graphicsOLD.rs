@@ -12,10 +12,11 @@ use wgpu_glyph::{GlyphBrush, GlyphBrushBuilder};
 use zerocopy::AsBytes;
 
 use super::{
-    SCALE, SIZE_X, SIZE_Y
+    image_consts::{ORIG_BG_SIZE_X, ORIG_BG_SIZE_Y, ORIG_KNOB_RADIUS, ORIG_KNOB_X, ORIG_KNOB_Y},
+    SCALE, SIZE_X, SIZE_Y,
 };
 
-const MSAA_SAMPLES: u32 = 1;
+const MSAA_SAMPLES: u32 = 4;
 
 /// Contains all handles to GPU resources required for rendering the editor interface.
 pub(super) struct Renderer<W: raw_window_handle::HasRawWindowHandle> {
@@ -37,6 +38,9 @@ pub(super) struct Renderer<W: raw_window_handle::HasRawWindowHandle> {
     rectangle_vertex_buffer: wgpu::Buffer,
 
     background_bind_group: wgpu::BindGroup,
+
+   // pointer_bind_group: wgpu::BindGroup,
+   // pointer_transform_buffer: wgpu::Buffer,
 }
 
 /// Low-level representation of a point in 3D space. This representation is designed to be shared
@@ -69,10 +73,26 @@ struct TransformUniform {
 
 const BACKGROUND_IMAGE: &[u8] = include_bytes!("../../../assets/images/bg.png");
 const FONT: &[u8] = include_bytes!("../../../assets/fonts/iosevka-Iosevka-medium.ttf");
-const FONT_COLOR: [f32; 4] = [0.0, 1.0, 0.5, 1.0];
+const FONT_COLOR: [f32; 4] = [1.0, 0.51, 0.0, 1.0];
 
-const TEXT_RIGHT_ANCHOR: f32 = 200. * SCALE as f32;
-const TEXT_CENTER_Y_ANCHOR: f32 = 100. * SCALE as f32;
+const TEXT_RIGHT_ANCHOR: f32 = 460. * SCALE as f32;
+const TEXT_CENTER_Y_ANCHOR: f32 = 500. * SCALE as f32;
+
+/// Scales and moves the original knob image from ([-1,1],[-1,1]) to its correct position on the
+/// background image.
+/// 
+/*
+static SCALE_MOVE_KNOB_TRANSFORM: Lazy<Matrix4<f32>> = Lazy::new(|| {
+    Matrix4::from_translation(Vector3::new(
+        2. * (ORIG_KNOB_X - ORIG_BG_SIZE_X / 2) as f32 / ORIG_BG_SIZE_X as f32,
+        2. * -((ORIG_KNOB_Y - ORIG_BG_SIZE_Y / 2) as f32) / ORIG_BG_SIZE_Y as f32,
+        0.,
+    )) * Matrix4::from_nonuniform_scale(
+        (ORIG_KNOB_RADIUS * 2) as f32 / ORIG_BG_SIZE_X as f32,
+        (ORIG_KNOB_RADIUS * 2) as f32 / ORIG_BG_SIZE_Y as f32,
+        1.,
+    )
+});*/
 
 impl<W: raw_window_handle::HasRawWindowHandle> Renderer<W> {
     /// Creates a new `Renderer` by initializing the GPU to prepare it for rendering.
@@ -171,12 +191,12 @@ impl<W: raw_window_handle::HasRawWindowHandle> Renderer<W> {
 
         // The graphics pipeline specifies what behavior to use when rendering to the screen.
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Render pipeline layout"),
+            label: None,
             bind_group_layouts: &[&bind_group_layout],
             push_constant_ranges: &[],
         });
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Render pipeline"),
+            label: None,
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &vs_module,
@@ -265,6 +285,16 @@ impl<W: raw_window_handle::HasRawWindowHandle> Renderer<W> {
             BACKGROUND_IMAGE,
             Matrix4::identity(),
         );
+        /*
+        let (pointer_bind_group, pointer_transform_buffer) = make_bind_group(
+            &device,
+            &queue,
+            &bind_group_layout,
+            &sampler,
+            POINTER_IMAGE,
+            *SCALE_MOVE_KNOB_TRANSFORM,
+        );
+*/
         // Font rendering is conveniently handled by `wgpu_glyph` :)
         let fonts: Vec<wgpu_glyph::ab_glyph::FontArc> =
             vec![wgpu_glyph::ab_glyph::FontArc::try_from_slice(FONT).unwrap()];
@@ -287,6 +317,9 @@ impl<W: raw_window_handle::HasRawWindowHandle> Renderer<W> {
             rectangle_vertex_buffer,
 
             background_bind_group,
+
+       //     pointer_bind_group,
+       //     pointer_transform_buffer,
         }
     }
 
@@ -297,6 +330,22 @@ impl<W: raw_window_handle::HasRawWindowHandle> Renderer<W> {
                 .device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
             {
+                // Pointer starts at top position in source image. Knob limits are 150 degrees in
+                // both directions.
+                       /*
+                let data = TransformUniform {
+                    transform: (*SCALE_MOVE_KNOB_TRANSFORM
+                        * Matrix4::from_angle_z(cgmath::Deg(-state.amplitude_value * 300. + 150.)))
+                    .into(),
+                };
+         
+                self.queue.write_buffer(
+                    &self.pointer_transform_buffer,
+                    0 as wgpu::BufferAddress,
+                    data.as_bytes(),
+                );
+                */
+
                 let view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
 
                 {
@@ -313,6 +362,9 @@ impl<W: raw_window_handle::HasRawWindowHandle> Renderer<W> {
                     rpass.set_bind_group(0, &self.background_bind_group, &[]);
                     rpass.draw_indexed(0..6, 0, 0..1);
 
+                    // draw knob pointer
+                 //   rpass.set_bind_group(0, &self.pointer_bind_group, &[]);
+                 //   rpass.draw_indexed(0..6, 0, 0..1);
                 }
 
                 let display_val = state.amplitude_value * 2.;
@@ -330,9 +382,9 @@ impl<W: raw_window_handle::HasRawWindowHandle> Renderer<W> {
                         .with_text(&text)
                         .with_color(FONT_COLOR)
                         .with_font_id(wgpu_glyph::FontId(0))
-                        .with_scale(50. * SCALE as f32)],
+                        .with_scale(100. * SCALE as f32)],
                     layout: wgpu_glyph::Layout::default_single_line()
-                        .h_align(wgpu_glyph::HorizontalAlign::Left)
+                        .h_align(wgpu_glyph::HorizontalAlign::Right)
                         .v_align(wgpu_glyph::VerticalAlign::Center),
                     screen_position: (TEXT_RIGHT_ANCHOR, TEXT_CENTER_Y_ANCHOR),
                     bounds: (SIZE_X as f32, SIZE_Y as f32),
